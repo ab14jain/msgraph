@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<script src="//ajax.aspnetcdn.com/ajax/jQuery/jquery-2.2.3.min.js"></script>
+	<script>
+		$(document).ready(function () {
+			getAccessToken();
+		});
+
+		function getAccessToken() {
+			var authenticated = (window.location.href.split("#access_token=")[1] != undefined);
+			var token = "";
+			if (!authenticated) {
+				//authenticate user using OAuth
+				getAdminAccess();
+			}
+			else {
+				//there is a token in the URL. Let's retrieve from the query string
+				token = window.location.href.split("#access_token=")[1].split("&")[0];
+				var call = $.ajax({
+					//url: "https://outlook.office.com/api/v1.0/me/calendarview?startDateTime=" + startString + "&endDateTime=" + endString,
+					url: "https://outlook.office.com/api/v1.0/me/events",
+					type: "GET",
+					dataType: "json",
+					headers: {
+						Accept: "application/json;odata.metadata=minimal;odata.streaming=true",
+						'Authorization': "Bearer " + token
+					}
+				});
+
+				call.done(function (data, textStatus, jqXHR) {
+
+					var events = [];
+					//loop through the returned events and push them
+					//into the events array that will be displayed in the calendar.
+					var eventHtml = "";
+					for (index in data.value) {
+						eventHtml += "<tr><td></td>";
+						eventHtml += "<td>" + data.value[index].Subject + "</td>";
+						eventHtml += "<td>" + data.value[index].Start + "</td>";
+						eventHtml += "<td>" + data.value[index].End + "</td>";
+						eventHtml += "<td>" + data.value[index].Location.DisplayName + ", " + data.value[index].Location.Address.Street + ", " + data.value[index].Location.Address.City + ", " + data.value[index].Location.Address.CountryOrRegion + "</td>";
+						eventHtml += "</tr>";
+						events.push({
+							title: data.value[index].Subject,
+							start: data.value[index].Start,
+							end: data.value[index].End,
+							location: data.value[index].Location.DisplayName + ", " + data.value[index].Location.Address.Street + ", " + data.value[index].Location.Address.City + ", " + data.value[index].Location.Address.CountryOrRegion
+						});
+					}
+
+					document.getElementById("eventBody").innerHTML = eventHtml;
+
+					//callback(events);
+
+				});
+
+				call.fail(function (jqXHR, textStatus, errorThrown) {
+					alert("Error retrieving events: " + jqXHR.responseText);
+				});
+			}
+		}
+
+		function getAdminAccess() {
+			var endpointUrl = "https://login.microsoftonline.com/common/adminconsent";
+			var clientId = '87979fdb-127f-42f0-a56b-95c1b82664cc';
+			var state = '1234545645234';
+			var redirectUri = 'https://jhomechef.sharepoint.com/sites/Northwind/SitePages/Home.aspx';
+			var endpointUrl = 'https://outlook.office365.com/api/v1.0/me/events';
+			var resource = "https://outlook.office365.com/";
+
+			var authServer = 'https://login.windows.net/common/oauth2/authorize?';
+			var responseType = 'token';
+
+			var url = authServer +
+				"response_type=" + encodeURI(responseType) + "&" +
+				"client_id=" + encodeURI(clientId) + "&" +
+				"resource=" + encodeURI(resource) + "&" +
+				"redirect_uri=" + encodeURI(redirectUri);
+			window.location = url;
+		}
+
+		function requestToken() {
+			// Change clientId and replyUrl to reflect your app's values 
+			// found on the Configure tab in the Azure Management Portal
+
+			var clientId = '87979fdb-127f-42f0-a56b-95c1b82664cc';
+			var replyUrl = 'https://jhomechef.sharepoint.com/sites/Northwind/SitePages/Home.aspx';
+			var endpointUrl = 'https://outlook.office365.com/ews/odata/Me/Events';
+			var resource = "https://outlook.office365.com/";
+			var authServer = 'https://login.windows.net/common/oauth2/authorize?';
+			var responseType = 'token';
+
+			var url = authServer +
+				"response_type=" + encodeURI(responseType) + "&" +
+				"client_id=" + encodeURI(clientId) + "&" +
+				"resource=" + encodeURI(resource) + "&" +
+				"redirect_uri=" + encodeURI(replyUrl);
+
+			//redirect user to the OAuth URL. The user will be redirected back to the page
+			//unless some error occurs that prevents it
+			window.location = url;
+		}
+
+		function rest_call() {
+			try {
+				var calendarUrl = "https://outlook.office365.com/ews/odata/Me/Events";
+				var calendarItems_html = "<div class='title'> Today's Schedule </div>";
+
+				$.ajax({
+					url: calendarUrl,
+					method: "GET",
+					headers: { "Accept": "application/json; odata=verbose" },
+					success: function (data) {
+						$.each(data.value, function (i, item) {
+							if (item.IsAllDay)
+								calendarItems_html += "<div class='item'><img src='/sites/mytheme/Style%20Library/mytheme/images/schedule-arrow.png' alt=''/><span class='time'> " + getDate(item.Start) + " </span><span class='content'>" + item.Subject + "</span></div>";
+							else {
+								calendarItems_html += "<div class='item'><img src='/sites/mytheme/Style%20Library/mytheme/images/schedule-arrow.png' alt=''/><span class='time'> " + getTime(item.Start) + "&nbsp;-&nbsp;" + getTime(item.End) + " </span><span class='content'>" + item.Subject + "</span></div>";
+							}
+						});
+
+						$(".schedule").append(calendarItems_html);
+					},
+					error: function (err) {
+						$(".schedule").append(err);
+					}
+				});
+			}
+			catch (err) {
+				$(".schedule").append(err);
+			}
+		}
+
+		function getDate(ddate) {
+			var dDateHours = ddate.substring(0, 10);
+			return dDateHours;
+		}
+
+		function getTime(ddate) {
+			var dDateHours = ddate.substring(16, 11);
+			return dDateHours;
+		}
+
+	</script>
+</head>
+
+<body>
+	<div id="events">
+		<table>
+			<thead>
+				<th>
+					<td>
+							Title
+					</td>
+					<td>
+							Start Date
+					</td>
+					<td>
+							End Date
+					</td>
+					<td>
+							Location
+					</td>
+				</th>
+			</thead>
+			<tbody id="eventBody">
+
+			</tbody>
+		</table>
+	</div>
+</body>
+
+</html>
